@@ -2,7 +2,7 @@
 *This package is a Python implementation of similarity network fusion 2 (SNF2), an improvement method for the original SNF*
 
 
-## Requirements and installation (not working yet)
+## Requirements and installation
 This package requires Python version 3.6 or greater. Assuming you have the correct version of Python, you can install this package by opening a command terminal and running the following:
 ```bash
 
