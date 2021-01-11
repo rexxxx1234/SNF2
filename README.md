@@ -11,8 +11,7 @@ This package requires Python version 3.6 or greater. Assuming you have the corre
 ## Purpose
 Similarity network fusion is a technique originally proposed by [Wang et al., 2014, Nature Methods](https://www.ncbi.nlm.nih.gov/pubmed/24464287), Nature Methods to combine data from different sources for a shared group of samples. However, the SNF can only perform integration on the intersecting samples from different sources, which results in information loss by disgarding the unique samples in each sources. Here we present SNF2, which has the power of integrating the union of all the samples. And we have also proved that those unique samples do encode useful information which can contribute to the analysis of the intersecting samples.
 
-![Similarity network fusion](https://media.nature.com/lw926/nature-assets/nmeth/journal/v11/n3/images/nmeth.2810-F1.jpg)
-
+<img src="https://github.com/rexxxx1234/SNF2/blob/master/image/SNF2_main1.pdf" width="60%" height="60%">
 
 
 ## Sample Usage
