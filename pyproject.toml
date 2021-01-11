@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "SNF2"
+version = "0.1.0"
+description = ""
+authors = ["Shihao Ma <rex.ma@mail.utoronto.ca>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+snfpy = "^0.2.2"
+pandas = "^1.1.4"
+matplotlib = "^3.3.3"
+ipdb = "^0.13.4"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+flake8 = "^3.8.4"
+black = "^20.8b1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
