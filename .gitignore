@@ -1,3 +1,5 @@
 data/snf2_cancers
-data/snf2_cancer.zip
+data/__MACOSX
+data/snf2_cancers.zip
 results/
+__pycache__/
