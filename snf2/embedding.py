@@ -129,7 +129,7 @@ def Q_tsne(Y):
     return inv_distances / torch.sum(inv_distances)
 
 
-def project_tsne(dataset, num_com, no_dims=50):
+def project_tsne(dataset, P_joint, num_com, no_dims=50):
 
     print("---------------------------------")
     print("Begin finding the embedded space")
@@ -137,67 +137,86 @@ def project_tsne(dataset, num_com, no_dims=50):
     dataset_num = len(dataset)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     lr = 0.001
-    epoch_DNN = 500
-    log_DNN = 10
-    beta = 1
+    batch_size = 100
+    epoch_DNN = 1000
+    log_DNN = 50
+    beta = 10
 
     # get data dims
     col = []
+    row = []
     print("Shape of Raw data")
     for i in range(dataset_num):
+        row.append(np.shape(dataset[i])[0])
         col.append(np.shape(dataset[i])[1])
         print("Dataset {}:".format(i), np.shape(dataset[i]))
+
+    for i in range(dataset_num):
+        P_joint[i] = torch.from_numpy(P_joint[i]).float().to(device)
         dataset[i] = torch.from_numpy(dataset[i]).float().to(device)
 
     net = model(col, no_dims)
     Project_DNN = init_model(net, device, restore=None)
 
-    optimizer = optim.RMSprop(Project_DNN.parameters(), lr=lr)
+    optimizer = optim.Adam(Project_DNN.parameters(), lr=lr)
     c_mse = nn.MSELoss()
     Project_DNN.train()
 
     for epoch in range(epoch_DNN):
-        KL_loss = []
-        for i in range(dataset_num):
-            P_tmp = dataset[i]
-            low_dim_data = Project_DNN(dataset[i], i)
-            Q_joint = Q_tsne(low_dim_data)
+        len_dataloader = np.int(np.max(row) / batch_size)
+        if len_dataloader == 0:
+            len_dataloader = 1
+            batch_size = np.max(row)
+        for step in range(len_dataloader):
+            KL_loss = []
+            for i in range(dataset_num):
+                random_batch = np.random.randint(0, row[i], batch_size)
+                data = dataset[i][random_batch]
+                P_tmp = torch.zeros([batch_size, batch_size]).to(device)
+                for j in range(batch_size):
+                    P_tmp[j] = P_joint[i][random_batch[j], random_batch]
+                P_tmp = P_tmp / torch.sum(P_tmp)
+                low_dim_data = Project_DNN(data, i)
+                Q_joint = Q_tsne(low_dim_data)
 
-            ## loss of structure preserving
-            KL_loss.append(torch.sum(P_tmp * torch.log(P_tmp / Q_joint)))
+                ## loss of structure preserving
+                KL_loss.append(torch.sum(P_tmp * torch.log(P_tmp / Q_joint)))
 
-        ## loss of structure matching
-        feature_loss = np.array(0)
-        feature_loss = torch.from_numpy(feature_loss).to(device).float()
-        for i in range(dataset_num - 1):
-            low_dim_set1 = Project_DNN(
-                dataset[i][
-                    0:num_com,
-                ],
-                i,
+            # import ipdb
+            # ipdb.set_trace()
+
+            ## loss of structure matching
+            feature_loss = np.array(0)
+            feature_loss = torch.from_numpy(feature_loss).to(device).float()
+            for i in range(dataset_num - 1):
+                low_dim_set1 = Project_DNN(
+                    dataset[i][
+                        0:num_com,
+                    ],
+                    i,
+                )
+                low_dim_set2 = Project_DNN(
+                    dataset[dataset_num - 1][
+                        0:num_com,
+                    ],
+                    len(dataset) - 1,
+                )
+                feature_loss += c_mse(low_dim_set1, low_dim_set2)
+
+            loss = beta * feature_loss
+            for i in range(dataset_num):
+                loss += KL_loss[i]
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        if (epoch + 1) % log_DNN == 0:
+            print(
+                "epoch:[{:d}/{}]: loss:{:4f}, align_loss:{:4f}".format(
+                    epoch + 1, epoch_DNN, loss.data.item(), feature_loss.data.item()
+                )
             )
-            low_dim_set2 = Project_DNN(
-                dataset[dataset_num - 1][
-                    0:num_com,
-                ],
-                len(dataset) - 1,
-            )
-            feature_loss += c_mse(low_dim_set1, low_dim_set2)
-
-        loss = beta * feature_loss
-        for i in range(dataset_num):
-            loss += KL_loss[i]
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-    if (epoch + 1) % log_DNN == 0:
-        print(
-            "epoch:[{:d}/{}]: loss:{:4f}, align_loss:{:4f}".format(
-                epoch + 1, epoch_DNN, loss.data.item(), feature_loss.data.item()
-            )
-        )
 
     integrated_data = []
     for i in range(dataset_num):
