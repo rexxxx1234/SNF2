@@ -15,6 +15,7 @@ import os
 
 d = os.path.dirname(os.getcwd())
 sys.path.insert(0, d)
+from snf2.tsne_deeplearning import tsne_p_deep
 from snf2.embedding import tsne_p, project_tsne
 from snf2.main import dist2, snf2, kernel_matching
 from snf2.util import data_indexing
@@ -122,10 +123,16 @@ print("After diffusion for full 1132 p2 NMI score:", score2)
 # w2_tsne = tsne_p(S2_fused.values, no_dims=20)
 # np.savetxt("/Users/mashihao/Desktop/SNF2/data/w1_tsne.csv", w1_tsne, delimiter=",")
 # np.savetxt("/Users/mashihao/Desktop/SNF2/data/w2_tsne.csv", w2_tsne, delimiter=",")
-integrated_data = project_tsne(
-    [w1.values, w2.values], [S1_fused.values, S2_fused.values], num_com=832, no_dims=20
-)
 
+#integrated_data = project_tsne(
+#    [w1.values, w2.values], [S1_fused.values, S2_fused.values], num_com=832, no_dims=20
+#)
+
+w1_tsne = tsne_p_deep(S1_fused.values, w1.values, no_dims=20)
+
+print(w1_tsne.shape)
+assert 0
+s
 union = (
     integrated_data[0][
         0:832,

@@ -138,7 +138,7 @@ def project_tsne(dataset, P_joint, num_com, no_dims=50):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     lr = 0.001
     batch_size = 100
-    epoch_DNN = 1000
+    epoch_DNN = 2000
     log_DNN = 50
     beta = 10
 
