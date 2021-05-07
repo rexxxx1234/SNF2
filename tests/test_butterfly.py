@@ -124,31 +124,28 @@ print("After diffusion for full 1132 p2 NMI score:", score2)
 # np.savetxt("/Users/mashihao/Desktop/SNF2/data/w1_tsne.csv", w1_tsne, delimiter=",")
 # np.savetxt("/Users/mashihao/Desktop/SNF2/data/w2_tsne.csv", w2_tsne, delimiter=",")
 
-#integrated_data = project_tsne(
+# integrated_data = project_tsne(
 #    [w1.values, w2.values], [S1_fused.values, S2_fused.values], num_com=832, no_dims=20
-#)
+# )
+# union = (
+#     integrated_data[0][
+#         0:832,
+#     ]
+#     + integrated_data[1][
+#         0:832,
+#     ]
+# ) / 2
+# uni1 = integrated_data[0][
+#     832:1032,
+# ]
+# uni2 = integrated_data[1][
+#     832:1132,
+# ]
 
-w1_tsne = tsne_p_deep(S1_fused.values, w1.values, no_dims=20)
+# S_final = np.concatenate([union, uni1, uni2], axis=0)
 
-print(w1_tsne.shape)
-assert 0
-s
-union = (
-    integrated_data[0][
-        0:832,
-    ]
-    + integrated_data[1][
-        0:832,
-    ]
-) / 2
-uni1 = integrated_data[0][
-    832:1032,
-]
-uni2 = integrated_data[1][
-    832:1132,
-]
-
-S_final = np.concatenate([union, uni1, uni2], axis=0)
+w1_tsne = tsne_p_deep([w1.values], S1_fused.values, no_dims=20)
+w2_tsne = tsne_p_deep([w2.values], S2_fused.values, no_dims=20)
 
 # load t-sne
 # tsne_w1 = os.path.join(testdata_dir, "w1_tsne.csv")
@@ -161,20 +158,20 @@ S_final = np.concatenate([union, uni1, uni2], axis=0)
 """
 
 # relabel the sample ID to the t-SNE embedding vectors
-# embed_w1 = pd.DataFrame(data=w1_tsne, index=original_order[0])
-# embed_w2 = pd.DataFrame(data=w2_tsne, index=original_order[1])
+embed_w1 = pd.DataFrame(data=w1_tsne, index=original_order[0])
+embed_w2 = pd.DataFrame(data=w2_tsne, index=original_order[1])
 
 
-# S_final = kernel_matching(
-#     [embed_w1, embed_w2],
-#     dicts_common=dicts_common,
-#     dicts_unique=dicts_unique,
-#     alpha=0.1,
-#     matching_iter=50,
-# )
-# S_final = S_final.reindex((wall_label.index.tolist()), axis=0)
+S_final = kernel_matching(
+    [embed_w1, embed_w2],
+    dicts_common=dicts_common,
+    dicts_unique=dicts_unique,
+    alpha=0.1,
+    matching_iter=50,
+)
+S_final = S_final.reindex((wall_label.index.tolist()), axis=0)
 
-Dist_final = dist2(S_final, S_final)
+Dist_final = dist2(S_final.values, S_final.values)
 Wall_final = snf.compute.affinity_matrix(Dist_final, K=20, mu=0.5)
 
 labels_final = spectral_clustering(Wall_final, n_clusters=10)
