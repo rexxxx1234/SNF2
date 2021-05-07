@@ -144,9 +144,11 @@ print("After diffusion for full 1132 p2 NMI score:", score2)
 
 # S_final = np.concatenate([union, uni1, uni2], axis=0)
 
-w1_tsne = tsne_p_deep([w1.values], S1_fused.values, no_dims=20)
-w2_tsne = tsne_p_deep([w2.values], S2_fused.values, no_dims=20)
-
+integrated_data = tsne_p_deep(
+    [w1.values, w2.values], [S1_fused.values, S2_fused.values], no_dims=20
+)
+w1_tsne = integrated_data[0]
+w2_tsne = integrated_data[1]
 # load t-sne
 # tsne_w1 = os.path.join(testdata_dir, "w1_tsne.csv")
 # tsne_w2 = os.path.join(testdata_dir, "w2_tsne.csv")
