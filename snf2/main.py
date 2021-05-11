@@ -116,15 +116,16 @@ def _stable_normalized_pd(W):
 
     return W
 
+
 def handle_zeros_in_scale(scale, copy=True):
-    ''' Makes sure that whenever scale is zero, we handle it correctly.
+    """Makes sure that whenever scale is zero, we handle it correctly.
     This happens in most scalers when we have constant features.
-    Adapted from sklearn.preprocessing.data'''
+    Adapted from sklearn.preprocessing.data"""
 
     # if we are fitting on 1D arrays, scale might be a scalar
     if np.isscalar(scale):
-        if scale == .0:
-            scale = 1.
+        if scale == 0.0:
+            scale = 1.0
         return scale
     elif isinstance(scale, np.ndarray):
         if copy:
@@ -132,6 +133,7 @@ def handle_zeros_in_scale(scale, copy=True):
             scale = scale.copy()
         scale[scale == 0.0] = 1.0
     return scale
+
 
 def affinity_matrix_mixdimen(dist, *, K=20, mu=0.5):
     # check inputs
@@ -235,9 +237,7 @@ def snf2_np(*aff, numofCom, K=20, t=20, alpha=1.0):
     return aff
 
 
-def snf2(
-    aff, dicts_common, dicts_unique, original_order, K=20, t=20, alpha=1.0
-):
+def snf2(args, aff, dicts_common, dicts_unique, original_order):
     """
     Performs Similarity Network Fusion on `aff` matrices
 
@@ -287,9 +287,9 @@ def snf2(
 
         # apply KNN threshold to normalized affinity matrix
         # We need to crop the intersecting samples from newW matrices
-        newW[n] = _find_dominate_set(aff[n], int(K))
+        newW[n] = _find_dominate_set(aff[n], int(args.neighbor_size))
 
-    for iteration in range(t):
+    for iteration in range(args.fusing_iteration):
         for n, mat in enumerate(aff):
             # temporarily convert nans to 0 to avoid propagation errors
             nzW = newW[n]  # TODO: not sure this is a deep copy or not
@@ -340,7 +340,7 @@ def snf2(
                     mat_tofuse_crop.dot(nzW_crop_T)
                 )  # Matmul is not working, but .dot() is good
 
-                aff0_temp = _B0_normalized(aff0_temp, alpha=alpha)
+                aff0_temp = _B0_normalized(aff0_temp, alpha=args.normalization_factor)
 
                 # Reorder back, and then add the aff0_copy
                 aff0_temp = aff0_temp.reindex(original_order[n], axis=1)
@@ -458,4 +458,4 @@ def kernel_matching(aff, dicts_common, dicts_unique, alpha=0.1, matching_iter=25
     end_time = time.time()
     print("Matching ends! Times: {}s".format(end_time - start_time))
 
-    return final_view 
+    return final_view

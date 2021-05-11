@@ -26,6 +26,8 @@ from snf2.util import data_indexing
 parser = argparse.ArgumentParser("SNF2 on butterfly dataset!")
 parser.add_argument("--neighbor_size", type=int, default=20)
 parser.add_argument("--embedding_dims", type=int, default=50)
+parser.add_argument("--fusing_iteration", type=int, default=20)
+parser.add_argument("--normalization_factor", type=int, default=1.0)
 parser.add_argument("--alighment_epochs", type=int, default=1000)
 parser.add_argument("--beta", type=float, default=1.0)
 parser.add_argument("--mu", type=float, default=0.5)
@@ -91,11 +93,11 @@ S1_df = pd.DataFrame(data=S1, index=original_order[0], columns=original_order[0]
 S2_df = pd.DataFrame(data=S2, index=original_order[1], columns=original_order[1])
 
 fused_networks = snf2(
+    args,
     [S1_df, S2_df],
     dicts_common=dicts_common,
     dicts_unique=dicts_unique,
     original_order=original_order,
-    K=20,
 )
 
 S1_fused = fused_networks[0]
@@ -118,10 +120,10 @@ print("After diffusion for full 1132 p2 NMI score:", score2)
 # np.savetxt("/Users/mashihao/Desktop/SNF2/data/w2_tsne.csv", w2_tsne, delimiter=",")
 
 integrated_data = tsne_p_deep(
+    args,
     [w1.values, w2.values],
     dicts_commonIndex,
     [S1_fused.values, S2_fused.values],
-    no_dims=20,
 )
 union = (
     integrated_data[0][
@@ -139,13 +141,6 @@ uni2 = integrated_data[1][
 ]
 
 S_final = np.concatenate([union, uni1, uni2], axis=0)
-
-# integrated_data = tsne_p_deep(
-#     [w1.values, w2.values], [S1_fused.values, S2_fused.values], no_dims=20
-# )
-# w1_tsne = integrated_data[0]
-# w2_tsne = integrated_data[1]
-
 
 # load t-sne
 # tsne_w1 = os.path.join(testdata_dir, "w1_tsne.csv")
@@ -174,7 +169,7 @@ S_final = np.concatenate([union, uni1, uni2], axis=0)
 # Dist_final = dist2(S_final.values, S_final.values)
 Dist_final = dist2(S_final, S_final)
 
-Wall_final = snf.compute.affinity_matrix(Dist_final, K=20, mu=0.5)
+Wall_final = snf.compute.affinity_matrix(Dist_final, K=args.neighbor_size, mu=args.mu)
 
 labels_final = spectral_clustering(Wall_final, n_clusters=10)
 score = v_measure_score(wall_label["label"].tolist(), labels_final)

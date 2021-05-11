@@ -32,7 +32,7 @@ def tsne_loss(P, activations):
 
 
 def adjust_learning_rate(optimizer, epoch):
-    """Sets the learning rate to the initial LR decayed by 10 every 50 epochs"""
+    """Sets the learning rate to the initial LR decayed by 0.1 every 100 epochs"""
     lr = 0.1 * (0.1 ** (epoch // 100))
     lr = max(lr, 1e-3)
     for param_group in optimizer.param_groups:
@@ -65,22 +65,16 @@ def P_preprocess(P):
     return P
 
 
-def tsne_p_deep(
-    dataset, dicts_commonIndex, P=np.array([]), no_dims=50, perplexity=30.0
-):
+def tsne_p_deep(args, dataset, dicts_commonIndex, P=np.array([])):
     """
     Runs t-SNE on the dataset in the NxN matrix P to extract embedding vectors
-    to no_dims dimensions. The syntaxis of the function is
-    `Y = tsne.tsne_p(P, no_dims, perplexity), where P is an NxN NumPy array.
+    to no_dims dimensions.
     """
-    num_com = 832
-    beta = 1
-
     # Check inputs
-    if isinstance(no_dims, float):
+    if isinstance(args.embedding_dims, float):
         print("Error: array P should have type float.")
         return -1
-    if round(no_dims) != no_dims:
+    if round(args.embedding_dims) != args.embedding_dims:
         print("Error: number of dimensions should be an integer.")
         return -1
 
@@ -98,7 +92,7 @@ def tsne_p_deep(
         dataset[i] = torch.from_numpy(dataset[i]).float().to(device)
 
         # construct DGL graph
-        temp = _find_dominate_set(P[i], K=10)
+        temp = _find_dominate_set(P[i], K=args.neighbor_size)
         g_nx = nx.from_numpy_matrix(temp)
         g_dgl = dgl.DGLGraph(g_nx)
         G.append(g_dgl)
@@ -107,14 +101,14 @@ def tsne_p_deep(
         P[i] = P_preprocess(P[i])
         P[i] = torch.from_numpy(P[i]).float().to(device)
 
-    net = model(G, feature_dims, no_dims)
+    net = model(G, feature_dims, args.embedding_dims)
     Project_DNN = init_model(net, device, restore=None)
     Project_DNN.train()
 
     optimizer = torch.optim.Adam(Project_DNN.parameters(), lr=1e-1)
     c_mse = nn.MSELoss()
 
-    for epoch in range(1000):
+    for epoch in range(args.alighment_epochs):
         adjust_learning_rate(optimizer, epoch)
 
         loss = 0
@@ -136,7 +130,8 @@ def tsne_p_deep(
                 low_dim_set1 = embeddings[i][dicts_commonIndex[(i, j)]]
                 low_dim_set2 = embeddings[j][dicts_commonIndex[(j, i)]]
                 alignment_loss += c_mse(low_dim_set1, low_dim_set2)
-        loss += alignment_loss
+
+        loss += args.beta * alignment_loss
 
         optimizer.zero_grad()
         loss.backward()
