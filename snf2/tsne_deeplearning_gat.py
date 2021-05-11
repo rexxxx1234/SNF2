@@ -4,8 +4,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from snf2.Model import model
+from snf2.GAT import model
+from snf.compute import _find_dominate_set
 import numpy as np
+import networkx as nx
+import dgl
 
 
 def tsne_loss(P, activations):
@@ -62,7 +65,9 @@ def P_preprocess(P):
     return P
 
 
-def tsne_p_deep(data, P=np.array([]), no_dims=50, perplexity=30.0):
+def tsne_p_deep(
+    dataset, dicts_commonIndex, P=np.array([]), no_dims=50, perplexity=30.0
+):
     """
     Runs t-SNE on the dataset in the NxN matrix P to extract embedding vectors
     to no_dims dimensions. The syntaxis of the function is
@@ -82,24 +87,29 @@ def tsne_p_deep(data, P=np.array([]), no_dims=50, perplexity=30.0):
     print("Start applying deep-learning based t-SNE extraction!")
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    col = []
-    dataset_num = len(data)
+    dataset_num = len(dataset)
+    G = []
+    feature_dims = []
     for i in range(dataset_num):
-        col.append(np.shape(data[i])[1])
-        print("Dataset {}:".format(i), np.shape(data[i]))
+        # get dataset dimentions
+        feature_dims.append(np.shape(dataset[i])[1])
+        print("Dataset {}:".format(i), np.shape(dataset[i]))
 
-    for i in range(dataset_num):
-        data[i] = torch.from_numpy(data[i]).float().to(device)
+        dataset[i] = torch.from_numpy(dataset[i]).float().to(device)
+
+        # construct DGL graph
+        temp = _find_dominate_set(P[i], K=10)
+        g_nx = nx.from_numpy_matrix(temp)
+        g_dgl = dgl.DGLGraph(g_nx)
+        G.append(g_dgl)
+
+        # preprocess similarity matrix for t-sne loss
         P[i] = P_preprocess(P[i])
         P[i] = torch.from_numpy(P[i]).float().to(device)
 
-    net = model(col, no_dims)
+    net = model(G, feature_dims, no_dims)
     Project_DNN = init_model(net, device, restore=None)
     Project_DNN.train()
-
-    import ipdb
-
-    ipdb.set_trace()
 
     optimizer = torch.optim.Adam(Project_DNN.parameters(), lr=1e-1)
     c_mse = nn.MSELoss()
@@ -108,32 +118,33 @@ def tsne_p_deep(data, P=np.array([]), no_dims=50, perplexity=30.0):
         adjust_learning_rate(optimizer, epoch)
 
         loss = 0
+        embeddings = []
+
+        # KL loss for each network
         for i in range(dataset_num):
-            X_embedding = Project_DNN(data[i], i)
+            X_embedding = Project_DNN(dataset[i], i)
+            embeddings.append(X_embedding)
             kl_loss = tsne_loss(P[i], X_embedding)
             loss += kl_loss
 
+        # pairwise alignment loss between each pair of networks
         alignment_loss = np.array(0)
         alignment_loss = torch.from_numpy(alignment_loss).to(device).float()
+
         for i in range(dataset_num - 1):
-            low_dim_set1 = Project_DNN(
-                data[i][
-                    0:num_com,
-                ],
-                i,
-            )
-            low_dim_set2 = Project_DNN(
-                data[dataset_num - 1][
-                    0:num_com,
-                ],
-                len(data) - 1,
-            )
-        alignment_loss += c_mse(low_dim_set1, low_dim_set2)
+            for j in range(i + 1, dataset_num):
+                low_dim_set1 = embeddings[i][dicts_commonIndex[(i, j)]]
+                low_dim_set2 = embeddings[j][dicts_commonIndex[(j, i)]]
+                alignment_loss += c_mse(low_dim_set1, low_dim_set2)
         loss += alignment_loss
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        if epoch == 100:
+            for i in range(dataset_num):
+                P[i] = P[i] / 4.0
 
         if (epoch) % 100 == 0:
             print(
@@ -142,13 +153,9 @@ def tsne_p_deep(data, P=np.array([]), no_dims=50, perplexity=30.0):
                 )
             )
 
-        if epoch == 100:
-            for i in range(dataset_num):
-                P[i] = P[i] / 4.0
-
     embeddings = []
     for i in range(dataset_num):
-        embeddings.append(Project_DNN(data[i], i))
+        embeddings.append(Project_DNN(dataset[i], i))
         embeddings[i] = embeddings[i].detach().cpu().numpy()
     print("Done")
     return embeddings
