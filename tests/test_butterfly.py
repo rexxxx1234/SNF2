@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 
 import sys
 import os
+import argparse
 
 d = os.path.dirname(os.getcwd())
 sys.path.insert(0, d)
@@ -20,6 +21,16 @@ from snf2.tsne_deeplearning_gat import tsne_p_deep
 from snf2.embedding import tsne_p, project_tsne
 from snf2.main import dist2, snf2, kernel_matching
 from snf2.util import data_indexing
+
+# Hyperparameters
+parser = argparse.ArgumentParser("SNF2 on butterfly dataset!")
+parser.add_argument("--neighbor_size", type=int, default=20)
+parser.add_argument("--embedding_dims", type=int, default=50)
+parser.add_argument("--alighment_epochs", type=int, default=1000)
+parser.add_argument("--beta", type=float, default=1.0)
+parser.add_argument("--mu", type=float, default=0.5)
+
+args = parser.parse_args()
 
 # read the data
 testdata_dir = os.path.join(d, "data/")
@@ -38,26 +49,6 @@ wall_label = pd.concat([w1_label, w2_label], axis=0)
 wall_label = wall_label[~wall_label.index.duplicated(keep="first")]
 
 
-# print(w1.shape)
-# print(w2.shape)
-# np.savetxt(os.path.join(testdata_dir, 'w1.txt'), w1.values, delimiter=',')
-# np.savetxt(os.path.join(testdata_dir, 'w2.txt'), w2.values, delimiter=',')
-# np.savetxt(os.path.join(testdata_dir, 'w1_type.txt'), w1_label.values, delimiter=',')
-# np.savetxt(os.path.join(testdata_dir, 'w2_type.txt'), w2_label.values, delimiter=',')
-
-
-# np.savetxt(os.path.join(testdata_dir, 'wall_label.txt'), wall_label.values, delimiter=',')
-
-# S_final = final = np.loadtxt("/Users/mashihao/Desktop/SNF2/data/final.txt", delimiter=',')
-# Dist_final = dist2(S_final, S_final)
-# Wall_final = snf.compute.affinity_matrix(Dist_final, K=20, mu=0.5)
-
-# labels_final = spectral_clustering(Wall_final, n_clusters=10)
-# score = v_measure_score(wall_label['label'].tolist() , labels_final)
-# print("SNF2 + kernel matching for clustering union 1332 samples NMI score:", score)
-# assert 0
-
-
 """
     Step1 : Apply the original SNF on the common samples, and the score will be a reference point
 """
@@ -67,8 +58,8 @@ w2_com = w2.filter(regex="^common_", axis=0)
 # need to make sure the order of common samples are the same for all views before fusing
 dist1_com = dist2(w1_com.values, w1_com.values)
 dist2_com = dist2(w2_com.values, w2_com.values)
-S1_com = snf.compute.affinity_matrix(dist1_com, K=20, mu=0.5)
-S2_com = snf.compute.affinity_matrix(dist2_com, K=20, mu=0.5)
+S1_com = snf.compute.affinity_matrix(dist1_com, K=args.neighbor_size, mu=args.mu)
+S2_com = snf.compute.affinity_matrix(dist2_com, K=args.neighbor_size, mu=args.mu)
 
 fused_network = snf.snf([S1_com, S2_com])
 labels_com = spectral_clustering(fused_network, n_clusters=10)
@@ -83,8 +74,8 @@ print("Original SNF for clustering intersecting 832 samples NMI score: ", score_
 Dist1 = dist2(w1.values, w1.values)
 Dist2 = dist2(w2.values, w2.values)
 
-S1 = snf.compute.affinity_matrix(Dist1, K=20, mu=0.5)
-S2 = snf.compute.affinity_matrix(Dist2, K=20, mu=0.5)
+S1 = snf.compute.affinity_matrix(Dist1, K=args.neighbor_size, mu=args.mu)
+S2 = snf.compute.affinity_matrix(Dist2, K=args.neighbor_size, mu=args.mu)
 
 labels_s1 = spectral_clustering(S1, n_clusters=10)
 score1 = v_measure_score(w1_label["label"].tolist(), labels_s1)
@@ -104,6 +95,7 @@ fused_networks = snf2(
     dicts_common=dicts_common,
     dicts_unique=dicts_unique,
     original_order=original_order,
+    K=20,
 )
 
 S1_fused = fused_networks[0]
