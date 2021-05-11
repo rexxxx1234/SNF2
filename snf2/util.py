@@ -5,6 +5,7 @@
 """
 
 import numpy as np
+from collections import defaultdict
 
 
 def data_indexing(matrices):
@@ -34,9 +35,14 @@ def data_indexing(matrices):
     dict_commonSample = {}
     dict_uniqueSample = {}
     dict_commonSampleIndex = {}
+    dict_sampleToIndexs = defaultdict(list)
 
     for i in range(0, len(matrices)):
         original_order[i] = list(matrices[i].index)
+        for sample in original_order[i]:
+            dict_sampleToIndexs[sample].append(
+                (i, np.argwhere(matrices[i].index == sample).squeeze().tolist())
+            )
 
     for i in range(0, len(original_order)):
         for j in range(i + 1, len(original_order)):
@@ -60,4 +66,10 @@ def data_indexing(matrices):
                 set(original_order[j]).symmetric_difference(commonList)
             )
 
-    return dict_commonSample, dict_commonSampleIndex, dict_uniqueSample, original_order
+    return (
+        dict_commonSample,
+        dict_commonSampleIndex,
+        dict_sampleToIndexs,
+        dict_uniqueSample,
+        original_order,
+    )

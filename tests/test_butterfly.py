@@ -88,7 +88,13 @@ score2 = v_measure_score(w2_label["label"].tolist(), labels_s2)
 print("Before diffusion for full 1132 p2 NMI score:", score2)
 
 # Do SNF2 diffusion
-dicts_common, dicts_commonIndex, dicts_unique, original_order = data_indexing([w1, w2])
+(
+    dicts_common,
+    dicts_commonIndex,
+    dict_sampleToIndexs,
+    dicts_unique,
+    original_order,
+) = data_indexing([w1, w2])
 S1_df = pd.DataFrame(data=S1, index=original_order[0], columns=original_order[0])
 S2_df = pd.DataFrame(data=S2, index=original_order[1], columns=original_order[1])
 
@@ -119,34 +125,21 @@ print("After diffusion for full 1132 p2 NMI score:", score2)
 # np.savetxt("/Users/mashihao/Desktop/SNF2/data/w1_tsne.csv", w1_tsne, delimiter=",")
 # np.savetxt("/Users/mashihao/Desktop/SNF2/data/w2_tsne.csv", w2_tsne, delimiter=",")
 
-integrated_data = tsne_p_deep(
-    args,
-    [w1.values, w2.values],
-    dicts_commonIndex,
-    [S1_fused.values, S2_fused.values],
-)
-union = (
-    integrated_data[0][
-        0:832,
-    ]
-    + integrated_data[1][
-        0:832,
-    ]
-) / 2
-uni1 = integrated_data[0][
-    832:1032,
-]
-uni2 = integrated_data[1][
-    832:1132,
-]
-
-S_final = np.concatenate([union, uni1, uni2], axis=0)
-
 # load t-sne
 # tsne_w1 = os.path.join(testdata_dir, "w1_tsne.csv")
 # tsne_w2 = os.path.join(testdata_dir, "w2_tsne.csv")
 # w1_tsne = np.loadtxt(tsne_w1, delimiter=",")
 # w2_tsne = np.loadtxt(tsne_w2, delimiter=",")
+
+
+S_final = tsne_p_deep(
+    args,
+    dicts_commonIndex,
+    dict_sampleToIndexs,
+    [w1.values, w2.values],
+    [S1_fused.values, S2_fused.values],
+)
+
 
 """
     Step4 : Iterative matching to integrate extracted embedding vectors into one network

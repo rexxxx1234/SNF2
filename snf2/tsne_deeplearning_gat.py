@@ -65,7 +65,7 @@ def P_preprocess(P):
     return P
 
 
-def tsne_p_deep(args, dataset, dicts_commonIndex, P=np.array([])):
+def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.array([])):
     """
     Runs t-SNE on the dataset in the NxN matrix P to extract embedding vectors
     to no_dims dimensions.
@@ -148,9 +148,21 @@ def tsne_p_deep(args, dataset, dicts_commonIndex, P=np.array([])):
                 )
             )
 
+    # get the final embeddings for all samples
     embeddings = []
     for i in range(dataset_num):
         embeddings.append(Project_DNN(dataset[i], i))
         embeddings[i] = embeddings[i].detach().cpu().numpy()
     print("Done")
-    return embeddings
+
+    final_embedding = np.array([]).reshape(0, args.embedding_dims)
+    for key in dict_sampleToIndexs:
+        sample_embedding = np.zeros((1, args.embedding_dims))
+
+        for (dataset, index) in dict_sampleToIndexs[key]:
+            sample_embedding += embeddings[dataset][index]
+        sample_embedding /= len(dict_sampleToIndexs[key])
+
+        final_embedding = np.concatenate((final_embedding, sample_embedding), axis=0)
+
+    return final_embedding
