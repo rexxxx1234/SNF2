@@ -169,19 +169,19 @@ score = v_measure_score(wall_label["label"].tolist(), labels_final)
 print("SNF2 + kernel matching for clustering union 1332 samples NMI score:", score)
 
 
-# # lets do some ploting
-# X_embedded = TSNE(n_components=2).fit_transform(S_final.values)
-# plt.scatter(
-#     X_embedded[:, 0],
-#     X_embedded[:, 1],
-#     c=wall_label["label"].tolist(),
-#     s=1.5,
-#     cmap="Spectral",
-# )
-# plt.title("t-SNE visualization of union 1332 butterfly")
-# save_path = os.path.join(testdata_dir, "t-SNE_butterfly.png")
-# plt.savefig(save_path)
-# print("Save visualization at {}".format(save_path))
+# lets do some ploting
+X_embedded = TSNE(n_components=2).fit_transform(S_final.values)
+plt.scatter(
+    X_embedded[:, 0],
+    X_embedded[:, 1],
+    c=wall_label["label"].tolist(),
+    s=1.5,
+    cmap="Spectral",
+)
+plt.title("t-SNE visualization of union 1332 butterfly")
+save_path = os.path.join(testdata_dir, "t-SNE_butterfly.png")
+plt.savefig(save_path)
+print("Save visualization at {}".format(save_path))
 
 
 """

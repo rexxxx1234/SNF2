@@ -3,12 +3,15 @@ import torch.autograd as autograd
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import torch.backends.cudnn as cudnn
+cudnn.benchmark = True
 
 from snf2.GAT import model
 from snf.compute import _find_dominate_set
 import numpy as np
 import networkx as nx
 import dgl
+import time
 
 
 def tsne_loss(P, activations):
@@ -79,6 +82,7 @@ def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.arra
         return -1
 
     print("Start applying deep-learning based t-SNE extraction!")
+    start_time = time.time()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     dataset_num = len(dataset)
@@ -95,6 +99,7 @@ def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.arra
         temp = _find_dominate_set(P[i], K=args.neighbor_size)
         g_nx = nx.from_numpy_matrix(temp)
         g_dgl = dgl.DGLGraph(g_nx)
+        g_dgl = g_dgl.to(device)
         G.append(g_dgl)
 
         # preprocess similarity matrix for t-sne loss
@@ -153,7 +158,6 @@ def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.arra
     for i in range(dataset_num):
         embeddings.append(Project_DNN(dataset[i], i))
         embeddings[i] = embeddings[i].detach().cpu().numpy()
-    print("Done")
 
     final_embedding = np.array([]).reshape(0, args.embedding_dims)
     for key in dict_sampleToIndexs:
@@ -164,5 +168,8 @@ def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.arra
         sample_embedding /= len(dict_sampleToIndexs[key])
 
         final_embedding = np.concatenate((final_embedding, sample_embedding), axis=0)
+
+    end_time = time.time()
+    print("Manifold alignment ends! Times: {}s".format(end_time - start_time))
 
     return final_embedding
