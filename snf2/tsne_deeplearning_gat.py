@@ -15,6 +15,7 @@ import time
 
 
 def tsne_loss(P, activations):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     n = activations.size(0)
     alpha = 1
     eps = 1e-12
@@ -26,7 +27,7 @@ def tsne_loss(P, activations):
     )
     Q = Q / alpha
     Q = torch.pow(1 + Q, -(alpha + 1) / 2)
-    Q = Q * autograd.Variable(1 - torch.eye(n), requires_grad=False)
+    Q = Q * autograd.Variable(1 - torch.eye(n), requires_grad=False).to(device)
     Q = Q / torch.sum(Q)
     Q = torch.clamp(Q, min=eps)
     C = torch.log((P + eps) / (Q + eps))
@@ -36,8 +37,8 @@ def tsne_loss(P, activations):
 
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 0.1 every 100 epochs"""
-    lr = 0.1 * (0.1 ** (epoch // 100))
-    lr = max(lr, 1e-3)
+    lr = 0.1 * (0.1 ** (epoch // 200))
+    lr = max(lr, 1e-4)
     for param_group in optimizer.param_groups:
         param_group["lr"] = lr
 
@@ -97,6 +98,7 @@ def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.arra
 
         # construct DGL graph
         temp = _find_dominate_set(P[i], K=args.neighbor_size)
+        #temp = _find_dominate_set(P[i], K=10)
         g_nx = nx.from_numpy_matrix(temp)
         g_dgl = dgl.DGLGraph(g_nx)
         g_dgl = g_dgl.to(device)
@@ -110,7 +112,7 @@ def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.arra
     Project_DNN = init_model(net, device, restore=None)
     Project_DNN.train()
 
-    optimizer = torch.optim.Adam(Project_DNN.parameters(), lr=1e-1)
+    optimizer = torch.optim.Adam(Project_DNN.parameters(), lr=1e-3)
     c_mse = nn.MSELoss()
 
     for epoch in range(args.alighment_epochs):
@@ -146,7 +148,7 @@ def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.arra
             for i in range(dataset_num):
                 P[i] = P[i] / 4.0
 
-        if (epoch) % 100 == 0:
+        if (epoch) % 10 == 0:
             print(
                 "epoch {}: loss {}, align_loss:{:4f}".format(
                     epoch, loss.data.item(), alignment_loss.data.item()

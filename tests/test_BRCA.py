@@ -8,15 +8,30 @@ import matplotlib.pyplot as plt
 
 import sys
 import os
+import argparse
 
 d = os.path.dirname(os.getcwd())
 sys.path.insert(0, d)
+from snf2.tsne_deeplearning_gat import tsne_p_deep
 from snf2.embedding import tsne_p
 from snf2.main import dist2, snf2, kernel_matching
 from snf2.util import data_indexing
 
+# Hyperparameters
+parser = argparse.ArgumentParser("SNF2 on butterfly dataset!")
+parser.add_argument("--neighbor_size", type=int, default=20)
+parser.add_argument("--embedding_dims", type=int, default=50)
+parser.add_argument("--fusing_iteration", type=int, default=20)
+parser.add_argument("--normalization_factor", type=int, default=1.0)
+parser.add_argument("--alighment_epochs", type=int, default=1000)
+parser.add_argument("--beta", type=float, default=1.0)
+parser.add_argument("--mu", type=float, default=0.5)
+
+args = parser.parse_args()
+
 # read the data
-testdata_dir = os.path.join(d, "data/snf2_cancers/BRCA")
+#testdata_dir = os.path.join(d, "data/snf2_cancers/BRCA")
+testdata_dir = "/scratch/gobi2/rexma/snf2_cancers/BRCA"
 cnv_ = os.path.join(testdata_dir, "cnv_1080x24776.csv")
 meth_ = os.path.join(testdata_dir, "meth_784x16474.csv")
 mirna_ = os.path.join(testdata_dir, "mirna_756x1046.csv")
@@ -32,7 +47,13 @@ rppa = pd.read_csv(rppa_, index_col=0)
 print("finish loading data!")
 
 # data indexing
-dicts_common, dicts_unique, original_order = data_indexing(
+(
+    dicts_common,
+    dicts_commonIndex,
+    dict_sampleToIndexs,
+    dicts_unique,
+    original_order,
+) = data_indexing(
     [cnv, meth, mirna, rnaseq, rppa]
 )
 print("finish indexing data!")
@@ -59,6 +80,7 @@ S4_df = pd.DataFrame(data=S4_rnaseq, index=original_order[3], columns=original_o
 S5_df = pd.DataFrame(data=S5_rppa, index=original_order[4], columns=original_order[4])
 
 fused_networks = snf2(
+    args,
     [S1_df, S2_df, S3_df, S4_df, S5_df],
     dicts_common=dicts_common,
     dicts_unique=dicts_unique,
@@ -73,6 +95,9 @@ S5_fused = fused_networks[4]
 
 # t-sne extraction
 result_dir = os.path.join(d, "results/BRCA")
+if not os.path.exists(result_dir):
+    os.makedirs(result_dir)
+
 """
 w1_tsne = tsne_p(S1_fused.values, no_dims=50)
 np.savetxt(
@@ -98,7 +123,7 @@ w5_tsne = tsne_p(S5_fused.values, no_dims=50)
 np.savetxt(
     os.path.join(result_dir, "tsne_embedding/w5_tsne.csv"), w5_tsne, delimiter=","
 )
-"""
+
 w1_tsne = np.loadtxt(
     os.path.join(result_dir, "tsne_embedding/w1_tsne.csv"), delimiter=","
 )
@@ -122,6 +147,8 @@ embed_w3 = pd.DataFrame(data=w3_tsne, index=original_order[2])
 embed_w4 = pd.DataFrame(data=w4_tsne, index=original_order[3])
 embed_w5 = pd.DataFrame(data=w5_tsne, index=original_order[4])
 
+
+
 S_final = kernel_matching(
     [embed_w1, embed_w2, embed_w3, embed_w4, embed_w5],
     dicts_common=dicts_common,
@@ -129,9 +156,19 @@ S_final = kernel_matching(
     alpha=0.1,
     matching_iter=49,
 )
+"""
 
-dist_final = dist2(S_final.values, S_final.values)
-Wall_final = snf.compute.affinity_matrix(dist_final, K=20, mu=0.5)
+S_final = tsne_p_deep(
+    args,
+    dicts_commonIndex,
+    dict_sampleToIndexs,
+    [cnv.values, meth.values, mirna.values, rnaseq.values, rppa.values],
+    [S1_fused.values, S2_fused.values, S3_fused.values, S4_fused.values, S5_fused.values],
+)
+
+#dist_final = dist2(S_final.values, S_final.values)
+dist_final = dist2(S_final, S_final)
+Wall_final = snf.compute.affinity_matrix(dist_final, K=args.neighbor_size, mu=args.mu)
 
 best, second = snf.get_n_clusters(Wall_final)
 print(best, second)
@@ -144,10 +181,11 @@ from sklearn.manifold import TSNE
 X_embedded = TSNE(n_components=2).fit_transform(S_final.values)
 plt.scatter(X_embedded[:, 0], X_embedded[:, 1], c=labels, s=1.5, cmap="Spectral")
 plt.title("t-SNE visualization of union breast patients")
-save_path = os.path.join(result_dir, "plots/tSNE.png")
+save_path = os.path.join(result_dir, "tSNE.png")
 plt.savefig(save_path)
 print("Save visualization at {}".format(save_path))
 
 # save result
+S_final_df = pd.DataFrame(data=S_final, index=dict_sampleToIndexs.keys())
 S_final["spectral"] = labels
 S_final.to_csv(os.path.join(result_dir, "allEmbedding.csv"))

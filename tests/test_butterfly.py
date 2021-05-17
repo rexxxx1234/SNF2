@@ -170,7 +170,7 @@ print("SNF2 + kernel matching for clustering union 1332 samples NMI score:", sco
 
 
 # lets do some ploting
-X_embedded = TSNE(n_components=2).fit_transform(S_final.values)
+X_embedded = TSNE(n_components=2).fit_transform(S_final)
 plt.scatter(
     X_embedded[:, 0],
     X_embedded[:, 1],
