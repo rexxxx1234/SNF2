@@ -12,7 +12,7 @@ import argparse
 
 d = os.path.dirname(os.getcwd())
 sys.path.insert(0, d)
-from snf2.tsne_deeplearning_gat import tsne_p_deep
+from snf2.tsne_deeplearning_gat import tsne_p_deep, tsne_p_deep_batch
 from snf2.embedding import tsne_p
 from snf2.main import dist2, snf2, kernel_matching
 from snf2.util import data_indexing
@@ -30,8 +30,9 @@ parser.add_argument("--mu", type=float, default=0.5)
 args = parser.parse_args()
 
 # read the data
-#testdata_dir = os.path.join(d, "data/snf2_cancers/BRCA")
-testdata_dir = "/scratch/gobi2/rexma/snf2_cancers/BRCA"
+# testdata_dir = os.path.join(d, "data/snf2_cancers/BRCA")
+# testdata_dir = "/scratch/gobi2/rexma/snf2_cancers/BRCA"
+testdata_dir = "/Users/mashihao/SNF2/snf2_cancers/BRCA"
 cnv_ = os.path.join(testdata_dir, "cnv_1080x24776.csv")
 meth_ = os.path.join(testdata_dir, "meth_784x16474.csv")
 mirna_ = os.path.join(testdata_dir, "mirna_756x1046.csv")
@@ -53,9 +54,7 @@ print("finish loading data!")
     dict_sampleToIndexs,
     dicts_unique,
     original_order,
-) = data_indexing(
-    [cnv, meth, mirna, rnaseq, rppa]
-)
+) = data_indexing([cnv, meth, mirna, rnaseq, rppa])
 print("finish indexing data!")
 
 # build similarity networks for each motality
@@ -157,16 +156,22 @@ S_final = kernel_matching(
     matching_iter=49,
 )
 """
-
+# , rnaseq.values, rppa.values
+# S4_fused.values,
+# S5_fused.values,
 S_final = tsne_p_deep(
     args,
     dicts_commonIndex,
     dict_sampleToIndexs,
-    [cnv.values, meth.values, mirna.values, rnaseq.values, rppa.values],
-    [S1_fused.values, S2_fused.values, S3_fused.values, S4_fused.values, S5_fused.values],
+    [cnv.values, meth.values, mirna.values],
+    [
+        S1_fused.values,
+        S2_fused.values,
+        S3_fused.values,
+    ],
 )
 
-#dist_final = dist2(S_final.values, S_final.values)
+# dist_final = dist2(S_final.values, S_final.values)
 dist_final = dist2(S_final, S_final)
 Wall_final = snf.compute.affinity_matrix(dist_final, K=args.neighbor_size, mu=args.mu)
 

@@ -4,9 +4,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
+
 cudnn.benchmark = True
 
-from snf2.GAT import model
+# from snf2.GAT import model
+from snf2.Model import model
 from snf.compute import _find_dominate_set
 import numpy as np
 import networkx as nx
@@ -91,14 +93,14 @@ def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.arra
     feature_dims = []
     for i in range(dataset_num):
         # get dataset dimentions
-        feature_dims.append(np.shape(dataset[i])[1])
+        feature_dims.append(np.shape(dataset[i])[0])
         print("Dataset {}:".format(i), np.shape(dataset[i]))
 
-        dataset[i] = torch.from_numpy(dataset[i]).float().to(device)
+        # dataset[i] = torch.from_numpy(dataset[i]).float().to(device)
+        dataset[i] = torch.eye(np.shape(dataset[i])[0])
 
         # construct DGL graph
         temp = _find_dominate_set(P[i], K=args.neighbor_size)
-        #temp = _find_dominate_set(P[i], K=10)
         g_nx = nx.from_numpy_matrix(temp)
         g_dgl = dgl.DGLGraph(g_nx)
         g_dgl = g_dgl.to(device)
@@ -108,11 +110,12 @@ def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.arra
         P[i] = P_preprocess(P[i])
         P[i] = torch.from_numpy(P[i]).float().to(device)
 
-    net = model(G, feature_dims, args.embedding_dims)
+    # net = model(G, feature_dims, args.embedding_dims)
+    net = model(feature_dims, args.embedding_dims)
     Project_DNN = init_model(net, device, restore=None)
     Project_DNN.train()
 
-    optimizer = torch.optim.Adam(Project_DNN.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(Project_DNN.parameters(), lr=1e-1)
     c_mse = nn.MSELoss()
 
     for epoch in range(args.alighment_epochs):
@@ -148,7 +151,127 @@ def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.arra
             for i in range(dataset_num):
                 P[i] = P[i] / 4.0
 
-        if (epoch) % 10 == 0:
+        if (epoch) % 50 == 0:
+            print(
+                "epoch {}: loss {}, align_loss:{:4f}".format(
+                    epoch, loss.data.item(), alignment_loss.data.item()
+                )
+            )
+
+    # get the final embeddings for all samples
+    embeddings = []
+    for i in range(dataset_num):
+        embeddings.append(Project_DNN(dataset[i], i))
+        embeddings[i] = embeddings[i].detach().cpu().numpy()
+
+    final_embedding = np.array([]).reshape(0, args.embedding_dims)
+    for key in dict_sampleToIndexs:
+        sample_embedding = np.zeros((1, args.embedding_dims))
+
+        for (dataset, index) in dict_sampleToIndexs[key]:
+            sample_embedding += embeddings[dataset][index]
+        sample_embedding /= len(dict_sampleToIndexs[key])
+
+        final_embedding = np.concatenate((final_embedding, sample_embedding), axis=0)
+
+    end_time = time.time()
+    print("Manifold alignment ends! Times: {}s".format(end_time - start_time))
+
+    return final_embedding
+
+
+def tsne_p_deep_batch(
+    args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.array([])
+):
+    """
+    Runs t-SNE on the dataset in the NxN matrix P to extract embedding vectors
+    to no_dims dimensions.
+    """
+    # Check inputs
+    if isinstance(args.embedding_dims, float):
+        print("Error: array P should have type float.")
+        return -1
+    if round(args.embedding_dims) != args.embedding_dims:
+        print("Error: number of dimensions should be an integer.")
+        return -1
+
+    print("Start applying deep-learning based t-SNE extraction!")
+    start_time = time.time()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    dataset_num = len(dataset)
+    G = []
+    feature_dims = []
+
+    batch_size = 500
+
+    for i in range(dataset_num):
+        # get dataset dimentions
+        feature_dims.append(np.shape(dataset[i])[1])
+        print("Dataset {}:".format(i), np.shape(dataset[i]))
+
+        dataset[i] = torch.from_numpy(dataset[i]).float().to(device)
+
+        # construct DGL graph
+        temp = _find_dominate_set(P[i], K=args.neighbor_size)
+        g_nx = nx.from_numpy_matrix(temp)
+        g_dgl = dgl.DGLGraph(g_nx)
+
+        g_dgl = g_dgl.to(device)
+        G.append(g_dgl)
+
+        # preprocess similarity matrix for t-sne loss
+        P[i] = P_preprocess(P[i])
+        P[i] = torch.from_numpy(P[i]).float().to(device)
+
+    net = model(G, feature_dims, args.embedding_dims)
+    Project_DNN = init_model(net, device, restore=None)
+    Project_DNN.train()
+
+    optimizer = torch.optim.Adam(Project_DNN.parameters(), lr=1e-2)
+    c_mse = nn.MSELoss()
+
+    for epoch in range(args.alighment_epochs):
+        adjust_learning_rate(optimizer, epoch)
+
+        loss = 0
+        embeddings = []
+
+        # KL loss for each network
+        for i in range(dataset_num):
+            n = dataset[i].shape[0]
+            for i, start in enumerate(range(0, n - batch_size + 1, batch_size)):
+                data_batch = dataset[i][start : start + batch_size]
+                X_embedding = Project_DNN(data_batch, i)
+                embeddings.append(X_embedding)
+
+                kl_loss = tsne_loss(
+                    P[i][start : start + batch_size, start : start + batch_size],
+                    X_embedding,
+                )
+                loss += kl_loss
+
+        # pairwise alignment loss between each pair of networks
+        alignment_loss = np.array(0)
+        alignment_loss = torch.from_numpy(alignment_loss).to(device).float()
+
+        for i in range(dataset_num - 1):
+            for j in range(i + 1, dataset_num):
+                low_dim_set1 = embeddings[i][dicts_commonIndex[(i, j)]]
+                low_dim_set2 = embeddings[j][dicts_commonIndex[(j, i)]]
+                alignment_loss += c_mse(low_dim_set1, low_dim_set2)
+
+        loss += args.beta * alignment_loss
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if epoch == 100:
+            for i in range(dataset_num):
+                P[i] = P[i] / 4.0
+
+        if (epoch) % 100 == 0:
             print(
                 "epoch {}: loss {}, align_loss:{:4f}".format(
                     epoch, loss.data.item(), alignment_loss.data.item()
