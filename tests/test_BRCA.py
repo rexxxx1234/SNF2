@@ -12,7 +12,7 @@ import argparse
 
 d = os.path.dirname(os.getcwd())
 sys.path.insert(0, d)
-from snf2.tsne_deeplearning_gat import tsne_p_deep, tsne_p_deep_batch
+from snf2.tsne_deeplearning_gat import tsne_p_deep
 from snf2.embedding import tsne_p
 from snf2.main import dist2, snf2, kernel_matching
 from snf2.util import data_indexing
@@ -31,8 +31,8 @@ args = parser.parse_args()
 
 # read the data
 # testdata_dir = os.path.join(d, "data/snf2_cancers/BRCA")
-# testdata_dir = "/scratch/gobi2/rexma/snf2_cancers/BRCA"
-testdata_dir = "/Users/mashihao/SNF2/snf2_cancers/BRCA"
+testdata_dir = "/scratch/gobi2/rexma/snf2_cancers/BRCA"
+#testdata_dir = "/Users/mashihao/SNF2/snf2_cancers/BRCA"
 cnv_ = os.path.join(testdata_dir, "cnv_1080x24776.csv")
 meth_ = os.path.join(testdata_dir, "meth_784x16474.csv")
 mirna_ = os.path.join(testdata_dir, "mirna_756x1046.csv")
@@ -156,18 +156,19 @@ S_final = kernel_matching(
     matching_iter=49,
 )
 """
-# , rnaseq.values, rppa.values
-# S4_fused.values,
-# S5_fused.values,
+
+
 S_final = tsne_p_deep(
     args,
     dicts_commonIndex,
     dict_sampleToIndexs,
-    [cnv.values, meth.values, mirna.values],
+    [cnv.values, meth.values, mirna.values, rnaseq.values, rppa.values],
     [
         S1_fused.values,
         S2_fused.values,
         S3_fused.values,
+        S4_fused.values,
+        S5_fused.values,
     ],
 )
 
@@ -177,13 +178,13 @@ Wall_final = snf.compute.affinity_matrix(dist_final, K=args.neighbor_size, mu=ar
 
 best, second = snf.get_n_clusters(Wall_final)
 print(best, second)
-labels = spectral_clustering(Wall_final, n_clusters=best)
+labels = spectral_clustering(Wall_final, n_clusters=4)
 
 # TSNE plots
 from sklearn.manifold import TSNE
 
 # X_embedded = TSNE(n_components=2, metric='precomputed').fit_transform(1-Wall_final.values)
-X_embedded = TSNE(n_components=2).fit_transform(S_final.values)
+X_embedded = TSNE(n_components=2).fit_transform(S_final)
 plt.scatter(X_embedded[:, 0], X_embedded[:, 1], c=labels, s=1.5, cmap="Spectral")
 plt.title("t-SNE visualization of union breast patients")
 save_path = os.path.join(result_dir, "tSNE.png")
@@ -192,5 +193,16 @@ print("Save visualization at {}".format(save_path))
 
 # save result
 S_final_df = pd.DataFrame(data=S_final, index=dict_sampleToIndexs.keys())
-S_final["spectral"] = labels
-S_final.to_csv(os.path.join(result_dir, "allEmbedding.csv"))
+S_final_df["spectral"] = labels
+
+survival_ = os.path.join(testdata_dir, "BRCA_survival.csv")
+survival = pd.read_csv(survival_, index_col=0)
+survival.rename(
+    {"Overall Survival (Months)": "timetoevent", "Overall Survival Status": "event"},
+    axis=1,
+    inplace=True,
+)
+
+S_final_df = S_final_df.merge(survival, how="inner", left_index=True, right_index=True)
+
+S_final_df.to_csv(os.path.join(result_dir, "allEmbedding.csv"))
