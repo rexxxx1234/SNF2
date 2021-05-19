@@ -30,13 +30,13 @@ parser.add_argument("--mu", type=float, default=0.5)
 args = parser.parse_args()
 
 # read the data
-testdata_dir = "/scratch/gobi2/rexma/snf2_cancers/GBM"
-#testdata_dir = os.path.join(d, "data/snf2_cancers/GBM")
-cnv_ = os.path.join(testdata_dir, "cnv_577x24776.csv")
-meth_ = os.path.join(testdata_dir, "meth_285x11807.csv")
-mirna_ = os.path.join(testdata_dir, "mirna_575x534.csv")
-rnaseq_ = os.path.join(testdata_dir, "rnaseq_528x12042.csv")
-rppa_ = os.path.join(testdata_dir, "rppa_238x203.csv")
+#testdata_dir = os.path.join(d, "data/snf2_cancers/KIRC")
+testdata_dir = "/scratch/gobi2/rexma/snf2_cancers/KIRC"
+cnv_ = os.path.join(testdata_dir, "cnv_528x24776.csv")
+meth_ = os.path.join(testdata_dir, "meth_319x16459.csv")
+mirna_ = os.path.join(testdata_dir, "mirna_257x1046.csv")
+rnaseq_ = os.path.join(testdata_dir, "rnaseq_533x20531.csv")
+rppa_ = os.path.join(testdata_dir, "rppa_478x212.csv")
 
 
 cnv = pd.read_csv(cnv_, index_col=0)
@@ -94,7 +94,7 @@ S4_fused = fused_networks[3]
 S5_fused = fused_networks[4]
 
 # t-sne extraction
-result_dir = os.path.join(d, "results/GBM")
+result_dir = os.path.join(d, "results/KIRC")
 if not os.path.exists(result_dir):
     os.makedirs(result_dir)
 """
@@ -166,7 +166,7 @@ Wall_final = snf.compute.affinity_matrix(dist_final, K=args.neighbor_size, mu=ar
 
 best, second = snf.get_n_clusters(Wall_final)
 print(best, second)
-labels = spectral_clustering(Wall_final, n_clusters=3)
+labels = spectral_clustering(Wall_final, n_clusters=5)
 
 # TSNE plots
 from sklearn.manifold import TSNE
@@ -174,7 +174,7 @@ from sklearn.manifold import TSNE
 # X_embedded = TSNE(n_components=2, metric='precomputed').fit_transform(1-Wall_final.values)
 X_embedded = TSNE(n_components=2).fit_transform(S_final)
 plt.scatter(X_embedded[:, 0], X_embedded[:, 1], c=labels, s=1.5, cmap="Spectral")
-plt.title("t-SNE visualization of union GBM patients")
+plt.title("t-SNE visualization of union KIRC patients")
 save_path = os.path.join(result_dir, "tSNE.png")
 plt.savefig(save_path)
 print("Save visualization at {}".format(save_path))
@@ -183,7 +183,7 @@ print("Save visualization at {}".format(save_path))
 S_final_df = pd.DataFrame(data=S_final, index=dict_sampleToIndexs.keys())
 S_final_df["spectral"] = labels
 
-survival_ = os.path.join(testdata_dir, "GBM_survival.csv")
+survival_ = os.path.join(testdata_dir, "KIRC_survival.csv")
 survival = pd.read_csv(survival_, index_col=0)
 survival.rename(
     {"Overall Survival (Months)": "timetoevent", "Overall Survival Status": "event"},

@@ -166,7 +166,7 @@ Wall_final = snf.compute.affinity_matrix(dist_final, K=20, mu=0.5)
 
 best, second = snf.get_n_clusters(Wall_final)
 print(best, second)
-labels = spectral_clustering(Wall_final, n_clusters=best)
+labels = spectral_clustering(Wall_final, n_clusters=3)
 
 # TSNE plots
 from sklearn.manifold import TSNE
