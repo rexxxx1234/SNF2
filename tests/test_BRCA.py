@@ -64,11 +64,11 @@ dist_mirna = dist2(mirna.values, mirna.values)
 dist_rnaseq = dist2(rnaseq.values, rnaseq.values)
 dist_rppa = dist2(rppa.values, rppa.values)
 
-S1_cnv = snf.compute.affinity_matrix(dist_cnv, K=20, mu=0.5)
-S2_meth = snf.compute.affinity_matrix(dist_meth, K=20, mu=0.5)
-S3_mirna = snf.compute.affinity_matrix(dist_mirna, K=20, mu=0.5)
-S4_rnaseq = snf.compute.affinity_matrix(dist_rnaseq, K=20, mu=0.5)
-S5_rppa = snf.compute.affinity_matrix(dist_rppa, K=20, mu=0.5)
+S1_cnv = snf.compute.affinity_matrix(dist_cnv, K=args.neighbor_size, mu=args.mu)
+S2_meth = snf.compute.affinity_matrix(dist_meth, K=args.neighbor_size, mu=args.mu)
+S3_mirna = snf.compute.affinity_matrix(dist_mirna, K=args.neighbor_size, mu=args.mu)
+S4_rnaseq = snf.compute.affinity_matrix(dist_rnaseq, K=args.neighbor_size, mu=args.mu)
+S5_rppa = snf.compute.affinity_matrix(dist_rppa, K=args.neighbor_size, mu=args.mu)
 print("finish building individual similarity network!")
 
 # Do SNF2 diffusion
