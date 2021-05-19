@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 import sys
 import os
+import argparse
 
 d = os.path.dirname(os.getcwd())
 sys.path.insert(0, d)
@@ -15,7 +16,6 @@ from snf2.tsne_deeplearning_gat import tsne_p_deep
 from snf2.embedding import tsne_p
 from snf2.main import dist2, snf2, kernel_matching
 from snf2.util import data_indexing
-import argparse
 
 # Hyperparameters
 parser = argparse.ArgumentParser("SNF2 on butterfly dataset!")
