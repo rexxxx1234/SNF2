@@ -287,7 +287,8 @@ def snf2(args, aff, dicts_common, dicts_unique, original_order):
 
         # apply KNN threshold to normalized affinity matrix
         # We need to crop the intersecting samples from newW matrices
-        newW[n] = _find_dominate_set(aff[n], int(args.neighbor_size))
+        neighbor_size = min(int(args.neighbor_size), aff[n].shape[0])
+        newW[n] = _find_dominate_set(aff[n], neighbor_size)
 
     for iteration in range(args.fusing_iteration):
         for n, mat in enumerate(aff):

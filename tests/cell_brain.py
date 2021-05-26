@@ -29,26 +29,27 @@ parser.add_argument("--mu", type=float, default=0.5)
 args = parser.parse_args()
 
 # result dir
-result_dir = os.path.join(d, "results/cellline/Breast")
+result_dir = os.path.join(d, "results/cellline/brain")
 if not os.path.exists(result_dir):
     os.makedirs(result_dir)
 
+
 # read the data
-testdata_CCLE = "/scratch/gobi2/rexma/snf2_cellline/CCLE/Breast"
-testdata_gCSI = "/scratch/gobi2/rexma/snf2_cellline/gCSI/Breast"
-testdata_GDSC = "/scratch/gobi2/rexma/snf2_cellline/GDSC/Breast"
+testdata_CCLE = "/scratch/gobi2/rexma/snf2_cellline/CCLE/Brain"
+testdata_gCSI = "/scratch/gobi2/rexma/snf2_cellline/gCSI/Brain"
+testdata_GDSC = "/scratch/gobi2/rexma/snf2_cellline/GDSC/Brain"
 
-cnv_CCLE = os.path.join(testdata_CCLE, "cnv_57x22768.csv")
-cnv_gCSI = os.path.join(testdata_gCSI, "cnv_28x26168.csv")
-cnv_GDSC = os.path.join(testdata_GDSC, "cnv_46x22738.csv")
+cnv_CCLE = os.path.join(testdata_CCLE, "cnv_53x22750.csv")
+cnv_gCSI = os.path.join(testdata_gCSI, "cnv_7x26139.csv")
+cnv_GDSC = os.path.join(testdata_GDSC, "cnv_57x22721.csv")
 
-rna_CCLE = os.path.join(testdata_CCLE, "rna_59x20024.csv")
-rna_gCSI = os.path.join(testdata_gCSI, "rna_66x60662.csv")
-rna_GDSC = os.path.join(testdata_GDSC, "rna_39x11894.csv")
+rna_CCLE = os.path.join(testdata_CCLE, "rna_69x20024.csv")
+rna_gCSI = os.path.join(testdata_gCSI, "rna_28x60662.csv")
+rna_GDSC = os.path.join(testdata_GDSC, "rna_58x11894.csv")
 
-mut_CCLE = os.path.join(testdata_CCLE, "mut_53x1667.csv")
-mut_gCSI = os.path.join(testdata_gCSI, "mut_23x45.csv")
-mut_GDSC = os.path.join(testdata_GDSC, "mut_51x278.csv")
+mut_CCLE = os.path.join(testdata_CCLE, "mut_48x1667.csv")
+mut_gCSI = os.path.join(testdata_gCSI, "mut_6x46.csv")
+mut_GDSC = os.path.join(testdata_GDSC, "mut_56x278.csv")
 
 cnv1 = pd.read_csv(cnv_CCLE, index_col=0)
 cnv2 = pd.read_csv(cnv_gCSI, index_col=0)
@@ -289,5 +290,6 @@ plt.savefig(save_path)
 print("Save visualization at {}".format(save_path))
 
 S_final_df = pd.DataFrame(data=S_final, index=dict_sampleToIndexs.keys())
+print("final embedding shape: ", S_final.shape)
 S_final_df["spectral"] = labels
 S_final_df.to_csv(os.path.join(result_dir, "allEmbedding.csv"))

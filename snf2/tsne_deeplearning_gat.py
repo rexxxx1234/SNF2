@@ -100,7 +100,8 @@ def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, P=np.array([])):
         dataset.append(torch.eye(np.shape(P[i])[0]).to(device))
 
         # construct DGL graph
-        temp = _find_dominate_set(P[i], K=args.neighbor_size)
+        neighbor_size = min(int(args.neighbor_size), np.shape(P[i])[0])
+        temp = _find_dominate_set(P[i], K=neighbor_size)
         g_nx = nx.from_numpy_matrix(temp)
         g_dgl = dgl.DGLGraph(g_nx)
         g_dgl = g_dgl.to(device)
