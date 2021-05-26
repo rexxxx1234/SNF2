@@ -71,7 +71,7 @@ def P_preprocess(P):
     return P
 
 
-def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.array([])):
+def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, P=np.array([])):
     """
     Runs t-SNE on the dataset in the NxN matrix P to extract embedding vectors
     to no_dims dimensions.
@@ -88,16 +88,16 @@ def tsne_p_deep(args, dicts_commonIndex, dict_sampleToIndexs, dataset, P=np.arra
     start_time = time.time()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    dataset_num = len(dataset)
+    dataset_num = len(P)
     G = []
     feature_dims = []
+    dataset = []
     for i in range(dataset_num):
         # get dataset dimentions
-        feature_dims.append(np.shape(dataset[i])[0])
-        print("Dataset {}:".format(i), np.shape(dataset[i]))
+        feature_dims.append(np.shape(P[i])[0])
+        print("Dataset {}:".format(i), np.shape(P[i]))
 
-        # dataset[i] = torch.from_numpy(dataset[i]).float().to(device)
-        dataset[i] = torch.eye(np.shape(dataset[i])[0]).to(device)
+        dataset.append(torch.eye(np.shape(P[i])[0]).to(device))
 
         # construct DGL graph
         temp = _find_dominate_set(P[i], K=args.neighbor_size)
