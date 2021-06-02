@@ -63,11 +63,10 @@ dist2_com = dist2(w2_com.values, w2_com.values)
 S1_com = snf.compute.affinity_matrix(dist1_com, K=args.neighbor_size, mu=args.mu)
 S2_com = snf.compute.affinity_matrix(dist2_com, K=args.neighbor_size, mu=args.mu)
 
-fused_network = snf.snf([S1_com, S2_com])
+fused_network = snf.snf([S1_com, S2_com], t=10, K=20)
 labels_com = spectral_clustering(fused_network, n_clusters=10)
 score_com = v_measure_score(wcom_label["label"].tolist(), labels_com)
 print("Original SNF for clustering intersecting 832 samples NMI score: ", score_com)
-
 
 """
     Step2 : Use SNF2 to fuse not only the common samples, but also the unique samples

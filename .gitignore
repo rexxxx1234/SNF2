@@ -7,3 +7,4 @@ tests/*sh
 tests/*log
 data/*png
 data/*txt
+tests/.ipynb_checkpoints/
