@@ -19,7 +19,7 @@ sys.path.insert(0, d)
 # from snf2.tsne_deeplearning import tsne_p_deep
 from snf2.tsne_deeplearning_gat import tsne_p_deep
 from snf2.embedding import tsne_p, project_tsne
-from snf2.main import dist2, snf2, kernel_matching
+from snf2.main import dist2, snf2, kernel_matching, snf2_original
 from snf2.util import data_indexing
 
 # Hyperparameters
@@ -67,6 +67,42 @@ fused_network = snf.snf([S1_com, S2_com], t=10, K=20)
 labels_com = spectral_clustering(fused_network, n_clusters=10)
 score_com = v_measure_score(wcom_label["label"].tolist(), labels_com)
 print("Original SNF for clustering intersecting 832 samples NMI score: ", score_com)
+
+# Do SNF2 diffusion
+(
+    dicts_common,
+    dicts_commonIndex,
+    dict_sampleToIndexs,
+    dicts_unique,
+    original_order,
+) = data_indexing([w1_com, w2_com])
+S1_df = pd.DataFrame(data=S1_com, index=original_order[0], columns=original_order[0])
+S2_df = pd.DataFrame(data=S2_com, index=original_order[1], columns=original_order[1])
+
+fused_networks = snf2(
+    args,
+    [S1_df, S2_df],
+    dicts_common=dicts_common,
+    dicts_unique=dicts_unique,
+    original_order=original_order,
+)
+
+S1_fused = fused_networks[0]
+S2_fused = fused_networks[1]
+
+S_final = tsne_p_deep(
+    args,
+    dicts_commonIndex,
+    dict_sampleToIndexs,
+    [S1_fused.values, S2_fused.values],
+)
+
+
+Dist_final = dist2(S_final, S_final)
+Wall_final = snf.compute.affinity_matrix(Dist_final, K=args.neighbor_size, mu=args.mu)
+labels_com = spectral_clustering(Wall_final, n_clusters=10)
+score_com = v_measure_score(wcom_label["label"].tolist(), labels_com)
+print("SNF2 for clustering intersecting 832 samples NMI score: ", score_com)
 
 """
     Step2 : Use SNF2 to fuse not only the common samples, but also the unique samples
