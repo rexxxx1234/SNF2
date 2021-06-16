@@ -68,7 +68,6 @@ labels_com = spectral_clustering(fused_network, n_clusters=10)
 score_com = v_measure_score(wcom_label["label"].tolist(), labels_com)
 print("Original SNF for clustering intersecting 832 samples NMI score: ", score_com)
 
-
 """
     Step2 : Use SNF2 to fuse not only the common samples, but also the unique samples
 """
@@ -136,7 +135,6 @@ S_final = tsne_p_deep(
     args,
     dicts_commonIndex,
     dict_sampleToIndexs,
-    [w1.values, w2.values],
     [S1_fused.values, S2_fused.values],
 )
 

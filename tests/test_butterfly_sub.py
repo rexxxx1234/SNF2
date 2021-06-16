@@ -9,6 +9,7 @@ from sklearn.cluster import spectral_clustering
 from sklearn.metrics import v_measure_score
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 
 import sys
 import os
@@ -34,41 +35,96 @@ parser.add_argument("--mu", type=float, default=0.5)
 args = parser.parse_args()
 
 # read the data
-testdata_dir = os.path.join(d, "data/subsample")
-w1_ = os.path.join(testdata_dir, "w1_292+270.csv")
-w2_ = os.path.join(testdata_dir, "w2_292+270.csv")
+testdata_dir = os.path.join(d, "data/")
+w1_ = os.path.join(testdata_dir, "w1.csv")
+w2_ = os.path.join(testdata_dir, "w2.csv")
 w1 = pd.read_csv(w1_, index_col=0)
 w2 = pd.read_csv(w2_, index_col=0)
 
-label = ['label']
+label = ["label"]
 w1_label = w1[label]
 w2_label = w2[label]
-wcom_label = w1_label.filter(regex='^common_', axis=0)
+wcom_label = w1_label.filter(regex="^common_", axis=0)
 w1.drop(label, axis=1, inplace=True)
 w2.drop(label, axis=1, inplace=True)
 wall_label = pd.concat([w1_label, w2_label], axis=0)
-wall_label = wall_label[~wall_label.index.duplicated(keep='first')]
+wall_label = wall_label[~wall_label.index.duplicated(keep="first")]
+
+w1_com = w1.filter(regex="^common_", axis=0)
+w2_com = w2.filter(regex="^common_", axis=0)
 
 
+
+def run_snf2(w1, w2, wall_label):
+    Dist1 = dist2(w1.values, w1.values)
+    Dist2 = dist2(w2.values, w2.values)
+
+    S1 = snf.compute.affinity_matrix(Dist1, K=args.neighbor_size, mu=args.mu)
+    S2 = snf.compute.affinity_matrix(Dist2, K=args.neighbor_size, mu=args.mu)
+
+    # Do SNF2 diffusion
+    (
+        dicts_common,
+        dicts_commonIndex,
+        dict_sampleToIndexs,
+        dicts_unique,
+        original_order,
+    ) = data_indexing([w1, w2])
+    S1_df = pd.DataFrame(data=S1, index=original_order[0], columns=original_order[0])
+    S2_df = pd.DataFrame(data=S2, index=original_order[1], columns=original_order[1])
+
+    fused_networks = snf2(
+        args,
+        [S1_df, S2_df],
+        dicts_common=dicts_common,
+        dicts_unique=dicts_unique,
+        original_order=original_order,
+    )
+
+    S1_fused = fused_networks[0]
+    S2_fused = fused_networks[1]
+
+    S_final = tsne_p_deep(
+        args,
+        dicts_commonIndex,
+        dict_sampleToIndexs,
+        [S1_fused.values, S2_fused.values],
+    )
+
+    S_final_df = pd.DataFrame(data=S_final, index=dict_sampleToIndexs.keys())
+    S_final_df = S_final_df.reindex(wall_label.index.tolist())
+
+    Dist_final = dist2(S_final_df.values, S_final_df.values)
+    Wall_final = snf.compute.affinity_matrix(
+        Dist_final, K=args.neighbor_size, mu=args.mu
+    )
+
+    labels_final = spectral_clustering(Wall_final, n_clusters=10)
+    score = v_measure_score(wall_label["label"].tolist(), labels_final)
+    print("SNF2 for clustering union 832 samples NMI score:", score)
+    return score
 
 """
-    Step1 : Apply the original SNF on the common samples, and the score will be a reference point
+    Randomly remove a fraction of samples from each of the omic; save the files locally
 """
-w1_com = w1.filter(regex='^common_', axis=0)
-w2_com = w2.filter(regex='^common_', axis=0)
-
-# need to make sure the order of common samples are the same for all views before fusing
-dist1_com = dist2(w1_com.values, w1_com.values)
-dist2_com = dist2(w2_com.values, w2_com.values)
-S1_com = snf.compute.affinity_matrix(dist1_com, K=args.neighbor_size, mu=args.mu)
-S2_com = snf.compute.affinity_matrix(dist2_com, K=args.neighbor_size, mu=args.mu)
-
-fused_network = snf.snf([S1_com, S2_com])
-labels_com = spectral_clustering(fused_network, n_clusters=10)
-score_com = v_measure_score(wcom_label['label'].tolist(), labels_com)
-print("Original SNF for clustering intersecting {} samples NMI score: ".format(len(w1_com)), score_com)
+w1_partial_nmi = []
+w2_partial_nmi = []
+for i in np.linspace(0.1, 0.9, 9):
+    # w1_partial, _, _, _ = train_test_split(
+    #     w1_com, wcom_label, test_size=i, random_state=42, stratify=wcom_label
+    # )
+    # w1_partial_nmi.append(run_snf2(w1_partial, w2_com, wcom_label))
 
 
+
+    w2_partial, _, _, _ = train_test_split(
+        w2_com, wcom_label, test_size=i, stratify=wcom_label
+    )
+    w2_partial_nmi.append(run_snf2(w1_com, w2_partial, wcom_label))
+
+#print(w1_partial_nmi)
+print(w2_partial_nmi)
+assert  0
 """
     Step2 : Use SNF2 to fuse not only the common samples, but also the unique samples
 """
@@ -179,26 +235,3 @@ print("SNF2 + kernel matching for clustering union 832 samples NMI score:", scor
 # save_path = os.path.join(testdata_dir, "t-SNE_butterfly.png")
 # plt.savefig(save_path)
 # print("Save visualization at {}".format(save_path))
-
-
-"""
-# plot TSNE before matching
-all_embed = pd.concat([embed_w1, embed_w2], axis=0)
-all_label = pd.concat([w1_label, w2_label], axis=0)
-
-print(all_embed.shape)
-print(all_label.shape)
-# lets do some ploting
-X_embedded = TSNE(n_components=2).fit_transform(all_embed.values)
-plt.scatter(
-    X_embedded[:, 0],
-    X_embedded[:, 1],
-    c=all_label["label"].tolist(),
-    s=1.5,
-    cmap="Spectral",
-)
-plt.title("t-SNE visualization of both view1 and view2 before matching")
-save_path = os.path.join(testdata_dir, "t-SNE_before_matching.png")
-plt.savefig(save_path)
-print("Save visualization at {}".format(save_path))
-"""
