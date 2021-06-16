@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import time
 from scipy import sparse, stats
-from snf.compute import _flatten, _find_dominate_set, _B0_normalized
+from snf.compute import _flatten, _B0_normalized, _find_dominate_set
 from sklearn.utils.validation import (
     check_array,
     check_symmetric,
@@ -237,7 +237,7 @@ def snf2_np(*aff, numofCom, K=20, t=20, alpha=1.0):
     return aff
 
 
-def snf2(args, aff, dicts_common, dicts_unique, original_order):
+def snf2_original(args, aff, dicts_common, dicts_unique, original_order):
     """
     Performs Similarity Network Fusion on `aff` matrices
 
@@ -349,6 +349,125 @@ def snf2(args, aff, dicts_common, dicts_unique, original_order):
                 aff0_copy = np.add(aff0_temp, aff0_copy)
 
             # Get the average then update the aff[n]
+            aff[n] = np.divide(aff0_copy, len(aff) - 1)
+
+    for n, mat in enumerate(aff):
+        mat = _stable_normalized_pd(mat)
+        aff[n] = check_symmetric(mat, raise_warning=False)
+
+    end_time = time.time()
+    print("Diffusion ends! Times: {}s".format(end_time - start_time))
+    return aff
+
+
+def snf2(args, aff, dicts_common, dicts_unique, original_order):
+    """
+    Performs Similarity Network Fusion on `aff` matrices
+
+    Parameters
+    ----------
+    aff : (N, N) pandas dataframe
+        Input similarity arrays; all arrays should be square but no need to be equal size.
+
+    dicts_common: dictionaries, required
+        Dictionaries for getting common samples from different views
+        Example: dicts_common[(0, 1)] == dicts_common[(1, 0)], meaning the common patients between view 1&2
+
+    dicts_unique: dictionaries, required
+        Dictionaries for getting unique samples for different views
+        Example: dicts_unique[(0, 1)], meaning the unique samples from view 1 that are not in view 2
+                 dicts_unique[(1, 0)], meaning the unique samples from view 2 that are not in view 1
+
+    original_order: lists, required
+        The original order of each view
+
+    K : (0, N) int, optional
+        Hyperparameter normalization factor for scaling. Default: 20
+
+    t : int, optional
+        Number of iterations to perform information swapping. Default: 20
+
+    alpha : (0, 1) float, optional
+        Hyperparameter normalization factor for scaling. Default: 1.0
+
+    Returns
+    -------
+    W: (N, N) Ouputs similarity arrays
+        Fused similarity networks of input arrays
+    """
+
+    print("Start applying diffusion!")
+    start_time = time.time()
+
+    newW = [0] * len(aff)
+
+    # First, normalize different networks to avoid scale problems, it is compatible with pandas dataframe
+    for n, mat in enumerate(aff):
+        # normalize affinity matrix based on strength of edges
+        # mat = mat / np.nansum(mat, axis=1, keepdims=True)
+        mat = _stable_normalized_pd(mat)
+        aff[n] = check_symmetric(mat, raise_warning=False)
+
+        # apply KNN threshold to normalized affinity matrix
+        # We need to crop the intersecting samples from newW matrices
+        neighbor_size = min(int(args.neighbor_size), aff[n].shape[0])
+        newW[n] = _find_dominate_set(aff[n], neighbor_size)
+
+    for iteration in range(args.fusing_iteration):
+        for n, mat in enumerate(aff):
+            # temporarily convert nans to 0 to avoid propagation errors
+            nzW = newW[n]  # TODO: not sure this is a deep copy or not
+
+            # Your goal is to update aff[n], but it is the average of all the defused matrices.
+            # Make a copy of add[n], and set it to 0
+            aff0_copy = aff[n].copy()
+            for col in aff0_copy.columns:
+                aff0_copy[col].values[:] = 0
+
+            for j, mat_tofuse in enumerate(aff):
+                if n == j:
+                    continue
+
+                # reorder mat_tofuse to have the common samples
+                mat_tofuse = mat_tofuse.reindex(
+                    (sorted(dicts_common[(j, n)]) + sorted(dicts_unique[(j, n)])),
+                    axis=1,
+                )
+                mat_tofuse = mat_tofuse.reindex(
+                    (sorted(dicts_common[(j, n)]) + sorted(dicts_unique[(j, n)])),
+                    axis=0,
+                )
+
+                # Next, let's crop mat_tofuse
+                num_common = len(dicts_common[(n, j)])
+                to_drop_mat = mat_tofuse.columns[
+                    num_common : mat_tofuse.shape[1]
+                ].values.tolist()
+                mat_tofuse_crop = mat_tofuse.drop(to_drop_mat, axis=1)
+                mat_tofuse_crop = mat_tofuse_crop.drop(to_drop_mat, axis=0)
+
+                # Next, add the similarity from the view to fused to the current view identity matrix
+                nzW_identity = pd.DataFrame(
+                    data=np.identity(nzW.shape[0]),
+                    index=original_order[n],
+                    columns=original_order[n],
+                )
+                mat_tofuse_union = nzW_identity + mat_tofuse_crop
+                mat_tofuse_union.fillna(0.0, inplace=True)
+                # mat_tofuse_union = _stable_normalized_pd(mat_tofuse_union)
+                mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=1)
+                mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=0)
+
+                # Now we are ready to do the diffusion
+                nzW_T = np.transpose(nzW)
+                aff0_temp = nzW.dot(
+                    mat_tofuse_union.dot(nzW_T)
+                )  # Matmul is not working, but .dot() is good
+
+                aff0_temp = _B0_normalized(aff0_temp, alpha=args.normalization_factor)
+
+                aff0_copy = np.add(aff0_temp, aff0_copy)
+
             aff[n] = np.divide(aff0_copy, len(aff) - 1)
 
     for n, mat in enumerate(aff):

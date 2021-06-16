@@ -6,4 +6,9 @@ tests/logs
 tests/*sh
 tests/*log
 data/*png
+<<<<<<< HEAD
 results/cellline
+=======
+data/*txt
+tests/.ipynb_checkpoints/
+>>>>>>> b169c35edc810ef378c14e2036be3d0a80e1018e
