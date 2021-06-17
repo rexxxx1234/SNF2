@@ -47,6 +47,39 @@ def dist2(X, C):
     return res
 
 
+def _find_dominate_set_relative(W, K=20):
+    """
+    Retains `K` strongest edges for each sample in `W`
+    Parameters
+    ----------
+    W : (N, N) array_like
+        Input data
+    K : (0, N) int, optional
+        Number of neighbors to retain. Default: 20
+    Returns
+    -------
+    Wk : (N, N) np.ndarray
+        Thresholded version of `W`
+    """
+
+    # let's not modify W in place
+    Wk = W.copy()
+
+    # determine percentile cutoff that will keep only `K` edges for each sample
+    # remove everything below this cutoff
+    cutoff = 100 - (100 * (K / len(W)))
+    Wk[Wk < np.percentile(Wk, cutoff, axis=1, keepdims=True)] = 0
+
+    # normalize by strength of remaining edges
+    Wk = Wk / np.nansum(Wk, axis=1, keepdims=True)
+
+    Ws = Wk + np.transpose(Wk)
+
+    print("just to check")
+
+    return Ws
+
+
 def _check_SNF2_inputs(aff):
     """
     Confirms inputs to SNF2 are appropriate
@@ -282,6 +315,7 @@ def snf2_original(args, aff, dicts_common, dicts_unique, original_order):
     for n, mat in enumerate(aff):
         # normalize affinity matrix based on strength of edges
         # mat = mat / np.nansum(mat, axis=1, keepdims=True)
+        # mat = _find_dominate_set_relative(mat)
         mat = _stable_normalized_pd(mat)
         aff[n] = check_symmetric(mat, raise_warning=False)
 
@@ -405,6 +439,7 @@ def snf2(args, aff, dicts_common, dicts_unique, original_order):
     for n, mat in enumerate(aff):
         # normalize affinity matrix based on strength of edges
         # mat = mat / np.nansum(mat, axis=1, keepdims=True)
+        mat = _find_dominate_set_relative(mat)
         mat = _stable_normalized_pd(mat)
         aff[n] = check_symmetric(mat, raise_warning=False)
 
@@ -454,7 +489,7 @@ def snf2(args, aff, dicts_common, dicts_unique, original_order):
                 )
                 mat_tofuse_union = nzW_identity + mat_tofuse_crop
                 mat_tofuse_union.fillna(0.0, inplace=True)
-                # mat_tofuse_union = _stable_normalized_pd(mat_tofuse_union)
+                mat_tofuse_union = _stable_normalized_pd(mat_tofuse_union)
                 mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=1)
                 mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=0)
 
