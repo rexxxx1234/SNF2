@@ -396,7 +396,8 @@ def snf2(args, aff, dicts_common, dicts_unique, original_order):
         Fused similarity networks of input arrays
     """
 
-    print("Start applying diffusion!")
+    print("Start applying diffusion! with new method")
+
     start_time = time.time()
 
     newW = [0] * len(aff)
@@ -454,7 +455,7 @@ def snf2(args, aff, dicts_common, dicts_unique, original_order):
                 )
                 mat_tofuse_union = nzW_identity + mat_tofuse_crop
                 mat_tofuse_union.fillna(0.0, inplace=True)
-                # mat_tofuse_union = _stable_normalized_pd(mat_tofuse_union)
+                mat_tofuse_union = _stable_normalized_pd(mat_tofuse_union)
                 mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=1)
                 mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=0)
 
