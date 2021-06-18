@@ -75,8 +75,6 @@ def _find_dominate_set_relative(W, K=20):
 
     Ws = Wk + np.transpose(Wk)
 
-    print("just to check")
-
     return Ws
 
 
@@ -315,7 +313,6 @@ def snf2_original(args, aff, dicts_common, dicts_unique, original_order):
     for n, mat in enumerate(aff):
         # normalize affinity matrix based on strength of edges
         # mat = mat / np.nansum(mat, axis=1, keepdims=True)
-        # mat = _find_dominate_set_relative(mat)
         mat = _stable_normalized_pd(mat)
         aff[n] = check_symmetric(mat, raise_warning=False)
 
@@ -440,7 +437,6 @@ def snf2(args, aff, dicts_common, dicts_unique, original_order):
     for n, mat in enumerate(aff):
         # normalize affinity matrix based on strength of edges
         # mat = mat / np.nansum(mat, axis=1, keepdims=True)
-        mat = _find_dominate_set_relative(mat)
         mat = _stable_normalized_pd(mat)
         aff[n] = check_symmetric(mat, raise_warning=False)
 

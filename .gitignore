@@ -9,3 +9,4 @@ data/*png
 results/cellline
 data/*txt
 tests/.ipynb_checkpoints/
+data/subsample_new

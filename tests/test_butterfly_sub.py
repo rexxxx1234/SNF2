@@ -80,6 +80,11 @@ def run_snf2(w1, w2, wall_label):
     S1_fused = fused_networks[0]
     S2_fused = fused_networks[1]
 
+    # S2_fused = S2_fused.reindex(wall_label.index.tolist())
+    # labels_final = spectral_clustering(S2_fused.values, n_clusters=10)
+    # score = v_measure_score(wall_label["label"].tolist(), labels_final)
+    # print("SNF2 for clustering union 832 samples NMI score:", score)
+
     S_final = tsne_p_deep(
         args,
         dicts_commonIndex,
