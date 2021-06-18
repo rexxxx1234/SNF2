@@ -7,6 +7,7 @@ tests/*sh
 tests/*log
 data/*png
 results/cellline
+results/cancer
 data/*txt
 tests/.ipynb_checkpoints/
 data/subsample_new
